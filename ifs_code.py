@@ -20,7 +20,7 @@ BASE_DIR = Path(__file__).resolve().parent
 SHAPEFILE_PATH = BASE_DIR / "Admin2.shp"
 LAT_MAX, LAT_MIN = 38.0, 6.0
 LON_MIN, LON_MAX = 68.0, 98.0
-DEFAULT_STEPS = [6, 12, 120, 240]
+DEFAULT_STEPS = [6, 12, 18, 24]
 DEFAULT_MODEL_ORDER = ["ifs", "aifs-single"]
 DEFAULT_VARIABLE_ORDER = ["2t", "tp", "mucape"]
 
