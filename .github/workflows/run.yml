@@ -2,7 +2,9 @@ name: Update Weather Plot
 
 on:
   schedule:
-    - cron: '0 0,12 * * *'
+    # Runs at 01:00 and 13:00 UTC (Approx 6:30 AM and 6:30 PM IST)
+    # This ensures the ECMWF data is actually ready before we start.
+    - cron: '0 1,13 * * *'
   workflow_dispatch:
 
 permissions:
@@ -37,6 +39,5 @@ jobs:
           git config --global user.name 'GitHub Actions'
           git config --global user.email 'actions@github.com'
           git add .
-          # The '|| true' prevents the error if no files changed
-          git commit -m "Automated weather plot update" || true
+          git commit -m "Automated weather plot update" || echo "No changes to commit"
           git push
