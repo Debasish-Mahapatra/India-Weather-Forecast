@@ -181,6 +181,8 @@ def render_plot(
     cmap: str,
     unit: str,
     output_path: Path,
+    vmin: float | None = None,
+    vmax: float | None = None,
 ) -> None:
     fig = plt.figure(figsize=(10, 8))
     try:
@@ -191,6 +193,8 @@ def render_plot(
             ax=ax,
             transform=ccrs.PlateCarree(),
             cmap=cmap,
+            vmin=vmin,
+            vmax=vmax,
             cbar_kwargs={"label": unit},
         )
         plt.title(title, fontsize=14, fontweight="bold")
@@ -199,14 +203,13 @@ def render_plot(
         plt.close(fig)
 
 
-def generate_plot(
+def fetch_step_data(
     client: Client,
-    india_map: gpd.GeoDataFrame,
     model_name: str,
     var_code: str,
     config: dict[str, str],
     step: int,
-) -> Path:
+) -> tuple[xr.DataArray, str, Path]:
     output_path = build_output_path(model_name, var_code, step)
 
     with TemporaryDirectory(prefix=f"{MODEL_CONFIGS[model_name]['file_prefix'] or model_name}_{var_code}_{step}_") as tmp_dir:
@@ -228,20 +231,9 @@ def generate_plot(
             time_str = format_forecast_time(np.datetime64(result.datetime), step)
             data = ensure_2d_field(ds[config["data_key"]])
             data = convert_units(var_code, data)
+            data = data.load()
 
-        render_plot(
-            data=data,
-            india_map=india_map,
-            title=f"{MODEL_CONFIGS[model_name]['display_name']} {config['name']}\n{time_str}",
-            cmap=config["cmap"],
-            unit=config["unit"],
-            output_path=output_path,
-        )
-
-    if not output_path.exists() or output_path.stat().st_size == 0:
-        raise RuntimeError(f"Plot was not written correctly: {output_path.name}")
-
-    return output_path
+    return data, time_str, output_path
 
 
 def main() -> int:
@@ -283,18 +275,19 @@ def main() -> int:
             config = VARIABLES[var_code]
             print(f"\nProcessing {config['name']}...")
 
+            fetched: list[tuple[int, xr.DataArray, str, Path]] = []
             for step in selected_steps:
-                print(f"  - Step {step}h: ", end="", flush=True)
+                print(f"  - Step {step}h: fetching... ", end="", flush=True)
                 try:
-                    output_path = generate_plot(
+                    data, time_str, output_path = fetch_step_data(
                         client=client,
-                        india_map=india_map,
                         model_name=model_name,
                         var_code=var_code,
                         config=config,
                         step=step,
                     )
-                    print(f"✅ Done ({output_path.name})")
+                    fetched.append((step, data, time_str, output_path))
+                    print("✅ fetched")
                 except Exception as exc:
                     failure_message = (
                         f"{model_config['display_name']} {config['name']} at {step}h failed: {exc}"
@@ -303,6 +296,36 @@ def main() -> int:
                     print(f"❌ FAILED: {exc}")
 
                 time.sleep(step_delay_seconds)
+
+            if not fetched:
+                continue
+
+            vmin = float(min(float(data.min()) for _, data, _, _ in fetched))
+            vmax = float(max(float(data.max()) for _, data, _, _ in fetched))
+            print(f"  Shared color scale: vmin={vmin:.2f}, vmax={vmax:.2f} {config['unit']}")
+
+            for step, data, time_str, output_path in fetched:
+                print(f"  - Step {step}h: rendering... ", end="", flush=True)
+                try:
+                    render_plot(
+                        data=data,
+                        india_map=india_map,
+                        title=f"{model_config['display_name']} {config['name']}\n{time_str}",
+                        cmap=config["cmap"],
+                        unit=config["unit"],
+                        output_path=output_path,
+                        vmin=vmin,
+                        vmax=vmax,
+                    )
+                    if not output_path.exists() or output_path.stat().st_size == 0:
+                        raise RuntimeError(f"Plot was not written correctly: {output_path.name}")
+                    print(f"✅ Done ({output_path.name})")
+                except Exception as exc:
+                    failure_message = (
+                        f"{model_config['display_name']} {config['name']} at {step}h render failed: {exc}"
+                    )
+                    failures.append(failure_message)
+                    print(f"❌ FAILED: {exc}")
 
     if failures:
         print("\n❌ Pipeline completed with failures:")
