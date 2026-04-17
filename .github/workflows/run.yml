@@ -7,12 +7,19 @@ on:
     - cron: '0 1,13 * * *'
   workflow_dispatch:
 
+concurrency:
+  group: update-weather-plot
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      ECMWF_OPEN_DATA_SOURCE: azure
+      FORECAST_MODELS: ifs,aifs-single
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -29,7 +36,8 @@ jobs:
 
       - name: Install Python Libraries
         run: |
-          pip install xarray matplotlib cartopy cfgrib ecmwf-opendata numpy geopandas
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
 
       - name: Run Python Script
         run: python ifs_code.py
@@ -38,6 +46,7 @@ jobs:
         run: |
           git config --global user.name 'GitHub Actions'
           git config --global user.email 'actions@github.com'
-          git add .
-          git commit -m "Automated weather plot update" || echo "No changes to commit"
-          git push
+          git add plot_*.png
+          git diff --cached --quiet && exit 0
+          git commit -m "Automated weather plot update"
+          git push origin main
