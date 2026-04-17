@@ -53,7 +53,7 @@ MODEL_CONFIGS = {
         "variables": ["2t", "tp", "mucape"],
     },
     "aifs-single": {
-        "display_name": "AIFS Single",
+        "display_name": "AIFS",
         "client_model": "aifs-single",
         "file_prefix": "aifs_single",
         "variables": ["2t", "tp"],
@@ -184,7 +184,7 @@ def render_plot(
     vmin: float | None = None,
     vmax: float | None = None,
 ) -> None:
-    fig = plt.figure(figsize=(10, 8))
+    fig = plt.figure(figsize=(14, 11))
     try:
         ax = plt.axes(projection=ccrs.PlateCarree())
         ax.add_feature(cfeature.COASTLINE, linewidth=0.5)
@@ -198,8 +198,8 @@ def render_plot(
             extend="neither",
             cbar_kwargs={"label": unit},
         )
-        plt.title(title, fontsize=14, fontweight="bold")
-        plt.savefig(output_path, dpi=150, bbox_inches="tight")
+        plt.title(title, fontsize=18, fontweight="bold")
+        plt.savefig(output_path, dpi=220, bbox_inches="tight")
     finally:
         plt.close(fig)
 
