@@ -300,9 +300,10 @@ def main() -> int:
             if not fetched:
                 continue
 
-            vmin = float(min(float(data.min()) for _, data, _, _ in fetched))
-            vmax = float(max(float(data.max()) for _, data, _, _ in fetched))
-            print(f"  Shared color scale: vmin={vmin:.2f}, vmax={vmax:.2f} {config['unit']}")
+            combined = np.concatenate([data.values.ravel() for _, data, _, _ in fetched])
+            vmin = float(np.nanpercentile(combined, 2))
+            vmax = float(np.nanpercentile(combined, 98))
+            print(f"  Shared color scale (2-98 pct): vmin={vmin:.2f}, vmax={vmax:.2f} {config['unit']}")
 
             for step, data, time_str, output_path in fetched:
                 print(f"  - Step {step}h: rendering... ", end="", flush=True)
